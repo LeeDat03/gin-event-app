@@ -1,0 +1,9 @@
+{
+  "connections": [
+    {
+      "name": "sqlite3",
+      "adapter": "sqlite3",
+      "filename": "./data.db"
+    }
+  ]
+}
