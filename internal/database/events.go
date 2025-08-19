@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -20,8 +21,13 @@ type Event struct {
 	Location    string `json:"location" binding:"required,min=3"`
 }
 
-func (m EventModel) Insert(event *Event) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+const queryTimeout = 3 * time.Second
+
+var ErrEventNotFound = errors.New("Event not found")
+var ErrNoRowsAffected = errors.New("No rows affected")
+
+func (m *EventModel) Insert(event *Event) error {
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
 
 	query := `
@@ -39,8 +45,8 @@ func (m EventModel) Insert(event *Event) error {
 	return nil
 }
 
-func (m EventModel) GetAll() ([]*Event, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m *EventModel) GetAll() ([]*Event, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
 
 	query := `
@@ -72,8 +78,8 @@ func (m EventModel) GetAll() ([]*Event, error) {
 	return events, nil
 }
 
-func (m EventModel) Get(id int) (*Event, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+func (m *EventModel) Get(id int) (*Event, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
 
 	query := `
@@ -88,7 +94,7 @@ func (m EventModel) Get(id int) (*Event, error) {
 	if err != nil {
 		fmt.Println(err)
 		if err == sql.ErrNoRows {
-			return nil, nil
+			return nil, ErrEventNotFound
 		}
 		return nil, err
 	}
@@ -97,8 +103,8 @@ func (m EventModel) Get(id int) (*Event, error) {
 
 }
 
-func (m EventModel) Update(event *Event) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+func (m *EventModel) Update(event *Event) error {
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
 
 	query := `
@@ -107,17 +113,23 @@ func (m EventModel) Update(event *Event) error {
 		WHERE id = $5
 	`
 
-	_, err := m.DB.ExecContext(ctx, query, event.Name, event.Description, event.Date, event.Location, event.Id)
+	res, err := m.DB.ExecContext(ctx, query, event.Name, event.Description, event.Date, event.Location, event.Id)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrNoRowsAffected
+	}
 	return nil
 }
 
-func (m EventModel) Delete(id int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m *EventModel) Delete(id int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
 
 	query := `
@@ -125,10 +137,17 @@ func (m EventModel) Delete(id int) error {
 		WHERE id = $1
 	`
 
-	_, err := m.DB.ExecContext(ctx, query, id)
+	res, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {
-		fmt.Println(err)
 		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrNoRowsAffected
 	}
 
 	return nil
