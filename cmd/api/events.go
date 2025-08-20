@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/LeeDat03/gin-event-app/internal/database"
@@ -42,10 +43,8 @@ func (app *application) getEventById(c *gin.Context) {
 		return
 	}
 
-	event, err := app.models.Events.Get(id)
-
-	if err != nil {
-		ErrorResponse(c, http.StatusInternalServerError, err.Error())
+	event := app.getEventOrAbort(c, id)
+	if event == nil {
 		return
 	}
 
@@ -88,4 +87,114 @@ func (app *application) deleteEvent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"eventId": id,
 	})
+}
+
+func (app *application) addAttendeeToEvent(c *gin.Context) {
+	eventId, err := GetIDFromParam(c, "id")
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "not valid eventId")
+		return
+	}
+
+	userId, err := GetIDFromParam(c, "userId")
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "not valid userId")
+		return
+	}
+
+	event := app.getEventOrAbort(c, eventId)
+	if event == nil {
+		return
+	}
+	userToAdd := app.getUserOrAbort(c, userId)
+	if userToAdd == nil {
+		return
+	}
+
+	existingAttendee, err := app.models.Attendees.GetByEventAndAttendee(eventId, userId)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "Failed to retrieve")
+		return
+	}
+	if existingAttendee != nil {
+		ErrorResponse(c, http.StatusConflict, "Attendee exists")
+		return
+	}
+
+	attendee := database.Attendee{
+		EventId: eventId,
+		UserId:  userId,
+	}
+
+	if err := app.models.Attendees.Insert(&attendee); err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "Failed to insert")
+		return
+	}
+
+	c.JSON(http.StatusOK, attendee)
+}
+
+func (app *application) getAttendeesForEvent(c *gin.Context) {
+	id, err := GetIDFromParam(c, "id")
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "not valid eventId")
+		return
+	}
+
+	users, err := app.models.Attendees.GetAttendeesByEvent(id)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, users)
+}
+
+func (app *application) deleteAttendeeFromEvent(c *gin.Context) {
+	eventId, err := GetIDFromParam(c, "id")
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "not valid eventId")
+		return
+	}
+	userId, err := GetIDFromParam(c, "userId")
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "not valid userId")
+		return
+	}
+
+	err = app.models.Attendees.Delete(eventId, userId)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "Failed")
+		return
+	}
+	c.JSON(http.StatusNoContent, nil)
+}
+
+func (app *application) getEventsByAttendee(c *gin.Context) {
+	fmt.Println("run")
+	id, err := GetIDFromParam(c, "id")
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "not valid attendee")
+		return
+	}
+
+	events, err := app.models.Events.GetByAttendee(id)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, events)
+
+}
+
+func (app *application) getEventOrAbort(c *gin.Context, id int) *database.Event {
+	event, err := app.models.Events.Get(id)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return nil
+	}
+	if event == nil {
+		ErrorResponse(c, http.StatusNotFound, "event not found")
+		return nil
+	}
+	return event
 }

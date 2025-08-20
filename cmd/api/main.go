@@ -6,6 +6,7 @@ import (
 
 	"github.com/LeeDat03/gin-event-app/internal/database"
 	"github.com/LeeDat03/gin-event-app/internal/env"
+	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/mattn/go-sqlite3"
 )
 

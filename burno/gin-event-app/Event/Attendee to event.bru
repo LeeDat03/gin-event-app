@@ -1,0 +1,20 @@
+meta {
+  name: Attendee to event
+  type: http
+  seq: 7
+}
+
+post {
+  url: http://localhost:8000/api/v1/events/:id/attendees/:userId
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: 3
+  userId: 2
+}
+
+settings {
+  encodeUrl: true
+}

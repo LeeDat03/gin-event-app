@@ -22,3 +22,7 @@ func ErrorResponse(c *gin.Context, status int, message string) {
 		"error":  message,
 	})
 }
+
+func JSONResponse(c *gin.Context, status int, payload any) {
+	c.JSON(status, payload)
+}
