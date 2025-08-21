@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -11,9 +10,7 @@ import (
 )
 
 func (app *application) AuthMiddleWare() gin.HandlerFunc {
-	fmt.Println("heheheeh")
 	return func(ctx *gin.Context) {
-		fmt.Println("runnn middleware")
 		authHeader := ctx.GetHeader("Authorization")
 		if authHeader == "" {
 			ErrorResponse(ctx, http.StatusUnauthorized, "Authorize header")
@@ -56,6 +53,7 @@ func (app *application) AuthMiddleWare() gin.HandlerFunc {
 			return
 		}
 
+		// set user
 		ctx.Set("user", user)
 		ctx.Next()
 	}

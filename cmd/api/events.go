@@ -12,11 +12,14 @@ import (
 func (app *application) createEvent(c *gin.Context) {
 	var event database.Event
 
+	user := GetUserFromContext(c)
+
 	if err := c.ShouldBindJSON(&event); err != nil {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	event.OwnerId = user.ID
 	err := app.models.Events.Insert(&event)
 	if err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, err.Error())
@@ -58,6 +61,18 @@ func (app *application) updateEvent(c *gin.Context) {
 		return
 	}
 
+	user := GetUserFromContext(c)
+
+	existingEvent := app.getEventOrAbort(c, id)
+	if existingEvent == nil {
+		return
+	}
+
+	if existingEvent.OwnerId != user.ID {
+		ErrorResponse(c, http.StatusForbidden, "Not allowed to update this")
+		return
+	}
+
 	updatedEvent := &database.Event{}
 	if err := c.ShouldBindJSON(&updatedEvent); err != nil {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())
@@ -69,6 +84,7 @@ func (app *application) updateEvent(c *gin.Context) {
 		ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	c.JSON(http.StatusOK, updatedEvent)
 }
 
@@ -77,6 +93,17 @@ func (app *application) deleteEvent(c *gin.Context) {
 
 	if err != nil {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	user := GetUserFromContext(c)
+	existingEvent := app.getEventOrAbort(c, id)
+	if existingEvent == nil {
+		return
+	}
+
+	if existingEvent.OwnerId != user.ID {
+		ErrorResponse(c, http.StatusForbidden, "Not allowed to update this")
 		return
 	}
 
@@ -109,6 +136,11 @@ func (app *application) addAttendeeToEvent(c *gin.Context) {
 	userToAdd := app.getUserOrAbort(c, userId)
 	if userToAdd == nil {
 		return
+	}
+
+	user := GetUserFromContext(c)
+	if user.ID != event.OwnerId {
+		ErrorResponse(c, http.StatusForbidden, "Not allowed to update this")
 	}
 
 	existingAttendee, err := app.models.Attendees.GetByEventAndAttendee(eventId, userId)
@@ -158,6 +190,16 @@ func (app *application) deleteAttendeeFromEvent(c *gin.Context) {
 	userId, err := GetIDFromParam(c, "userId")
 	if err != nil {
 		ErrorResponse(c, http.StatusBadRequest, "not valid userId")
+		return
+	}
+
+	event := app.getEventOrAbort(c, eventId)
+	if event == nil {
+		return
+	}
+	user := GetUserFromContext(c)
+	if user.ID != event.OwnerId {
+		ErrorResponse(c, http.StatusForbidden, "Not allowed to update this")
 		return
 	}
 

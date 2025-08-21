@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/LeeDat03/gin-event-app/internal/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,6 +15,19 @@ func GetIDFromParam(c *gin.Context, paramName string) (int, error) {
 		return -1, errors.New("Invalid id ")
 	}
 	return id, nil
+}
+func GetUserFromContext(c *gin.Context) *database.User {
+	contextUser, exists := c.Get("user")
+	if !exists {
+		return &database.User{}
+	}
+
+	user, ok := contextUser.(*database.User)
+	if !ok {
+		return &database.User{}
+	}
+
+	return user
 }
 
 func ErrorResponse(c *gin.Context, status int, message string) {
